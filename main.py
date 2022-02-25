@@ -4,17 +4,30 @@ import logging
 from config import *
 from flask import Flask, request
 
+import psycopg2
+
 bot = telebot.TeleBot(BOT_TOKEN)
 server = Flask(__name__)
 logger = telebot.logger
 logger.setLevel(logging.DEBUG)
 
+db_connection = psycopg2.connect(DB_URI, sslmode="require")
+db_object = db_connection.cursor()
+
 
 # Логика взаимодействия пользователя при вводе команды "старт"
 @bot.message_handler(commands=["start"])
 def start(message):
+    id = message.from_user.id
     username = message.from_user.username
-    bot.reply_to(message, f"Hellow, {username}")
+    bot.reply_to(message, f"Hello, {username}")
+
+    db_object.execute(f"SELECT id FROM users WHERE id = {id}")
+    result = db_object.fetchone()
+
+    if not result:
+        db_object.execute("INSERT INTO users(id, username, messages) VALUES (%s, %s, %s)", (id, username, 0))
+        db_connection.commit()
 
 
 # Перенаправление входящих сообщений сервера Flask к нашему телеграмм боту
